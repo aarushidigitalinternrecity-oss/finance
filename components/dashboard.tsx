@@ -4,37 +4,20 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
-import { Wallet, TrendingUp, Target, Brain, DollarSign, PieChartIcon } from "lucide-react"
+import { Wallet, TrendingUp, Target, Brain, DollarSign, PieChartIcon, Calendar, BarChart3 } from "lucide-react"
 import { TransactionForm } from "@/components/transaction-form"
 import { TransactionList } from "@/components/transaction-list"
 import { AIInsightsComponent } from "@/components/ai-insights"
 import { SavingsGoals } from "@/components/savings-goals"
 import { ReportsExport } from "@/components/reports-export"
+import { storage, type Transaction, type OnboardingData } from "@/lib/storage"
 
-interface OnboardingData {
-  monthlyIncome: string
-  savingsGoal: string
-  currency: string
-  categories: {
-    needs: string[]
-    wants: string[]
-    notImportant: string[]
-  }
+interface DashboardProps {
+  onNavigateToMonthlySummary?: () => void
 }
 
-interface Transaction {
-  id: string
-  amount: number
-  category: string
-  type: "needs" | "wants" | "notImportant"
-  description: string
-  date: string
-  notes?: string
-}
-
-export function Dashboard() {
+export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [currentSpending, setCurrentSpending] = useState({
@@ -42,57 +25,59 @@ export function Dashboard() {
     wants: 0,
     notImportant: 0,
   })
+  const [currentMonth, setCurrentMonth] = useState(new Date())
 
   useEffect(() => {
-    const saved = localStorage.getItem("financeAI_onboarding")
-    if (saved) {
-      setOnboardingData(JSON.parse(saved))
+    const savedOnboarding = storage.getOnboardingData()
+    if (savedOnboarding) {
+      setOnboardingData(savedOnboarding)
     }
 
-    // Load transactions from localStorage
-    const savedTransactions = localStorage.getItem("financeAI_transactions")
-    if (savedTransactions) {
-      const parsedTransactions = JSON.parse(savedTransactions)
-      setTransactions(parsedTransactions)
-      calculateSpending(parsedTransactions)
-    }
+    loadCurrentMonthData()
   }, [])
 
-  const calculateSpending = (transactionList: Transaction[]) => {
-    const spending = {
-      needs: 0,
-      wants: 0,
-      notImportant: 0,
-    }
+  const loadCurrentMonthData = () => {
+    const monthlyTransactions = storage.getCurrentMonthTransactions()
+    const monthlySpending = storage.getCurrentMonthSpending()
 
-    transactionList.forEach((transaction) => {
-      spending[transaction.type] += transaction.amount
+    setTransactions(monthlyTransactions)
+    setCurrentSpending({
+      needs: monthlySpending.needs,
+      wants: monthlySpending.wants,
+      notImportant: monthlySpending.notImportant,
     })
-
-    setCurrentSpending(spending)
   }
 
   const handleAddTransaction = (transactionData: Omit<Transaction, "id">) => {
-    const newTransaction: Transaction = {
-      ...transactionData,
-      id: Date.now().toString(),
-    }
+    const newTransaction = storage.addTransaction(transactionData)
 
-    const updatedTransactions = [newTransaction, ...transactions]
-    setTransactions(updatedTransactions)
-    calculateSpending(updatedTransactions)
-
-    // Save to localStorage
-    localStorage.setItem("financeAI_transactions", JSON.stringify(updatedTransactions))
+    loadCurrentMonthData()
   }
 
   const handleDeleteTransaction = (id: string) => {
-    const updatedTransactions = transactions.filter((t) => t.id !== id)
-    setTransactions(updatedTransactions)
-    calculateSpending(updatedTransactions)
+    storage.deleteTransaction(id)
 
-    // Save to localStorage
-    localStorage.setItem("financeAI_transactions", JSON.stringify(updatedTransactions))
+    loadCurrentMonthData()
+  }
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    const newMonth = new Date(currentMonth)
+    if (direction === "prev") {
+      newMonth.setMonth(newMonth.getMonth() - 1)
+    } else {
+      newMonth.setMonth(newMonth.getMonth() + 1)
+    }
+    setCurrentMonth(newMonth)
+
+    const monthlyTransactions = storage.getTransactionsByMonth(newMonth.getFullYear(), newMonth.getMonth())
+    const monthlySpending = storage.getMonthlySpending(newMonth.getFullYear(), newMonth.getMonth())
+
+    setTransactions(monthlyTransactions)
+    setCurrentSpending({
+      needs: monthlySpending.needs,
+      wants: monthlySpending.wants,
+      notImportant: monthlySpending.notImportant,
+    })
   }
 
   if (!onboardingData) {
@@ -123,6 +108,9 @@ export function Dashboard() {
 
   const currencySymbol = getCurrencySymbol(onboardingData.currency)
 
+  const isCurrentMonth =
+    currentMonth.getFullYear() === new Date().getFullYear() && currentMonth.getMonth() === new Date().getMonth()
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -135,25 +123,79 @@ export function Dashboard() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold font-[family-name:var(--font-space-grotesk)]">FinanceAI</h1>
-                <p className="text-sm text-muted-foreground">
-                  {new Date().toLocaleDateString("en-US", {
-                    month: "long",
-                    year: "numeric",
-                  })}{" "}
-                  Overview
-                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => navigateMonth("prev")} className="h-6 px-2">
+                    ←
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    {currentMonth.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}{" "}
+                    Overview
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigateMonth("next")}
+                    className="h-6 px-2"
+                    disabled={isCurrentMonth}
+                  >
+                    →
+                  </Button>
+                  {!isCurrentMonth && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCurrentMonth(new Date())
+                        loadCurrentMonthData()
+                      }}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Current
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-            <TransactionForm
-              onAddTransaction={handleAddTransaction}
-              categories={onboardingData.categories}
-              currency={onboardingData.currency}
-            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onNavigateToMonthlySummary}
+                className="flex items-center gap-2 bg-transparent"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Monthly Summary
+              </Button>
+              {isCurrentMonth && (
+                <TransactionForm
+                  onAddTransaction={handleAddTransaction}
+                  categories={onboardingData.categories}
+                  currency={onboardingData.currency}
+                />
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {!isCurrentMonth && (
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-blue-800">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Viewing historical data for{" "}
+                  {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -185,7 +227,9 @@ export function Dashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Actual Savings</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {isCurrentMonth ? "Actual Savings" : "Month Savings"}
+              </CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -204,16 +248,12 @@ export function Dashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">AI Insights</CardTitle>
+              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
               <Brain className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-sm">
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Good Progress
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Click for detailed insights</p>
+              <div className="text-2xl font-bold">{transactions.length}</div>
+              <p className="text-xs text-muted-foreground">{isCurrentMonth ? "This month" : "In this month"}</p>
             </CardContent>
           </Card>
         </div>
@@ -324,23 +364,26 @@ export function Dashboard() {
           </Card>
         </div>
 
-        <SavingsGoals currency={onboardingData.currency} monthlyIncome={income} totalSpent={totalSpent} />
+        {isCurrentMonth && (
+          <>
+            <SavingsGoals currency={onboardingData.currency} monthlyIncome={income} totalSpent={totalSpent} />
 
-        {/* AI Insights Component */}
-        <AIInsightsComponent
-          transactions={transactions}
-          monthlyIncome={income}
-          savingsGoal={savingsGoal}
-          currency={onboardingData.currency}
-          categories={onboardingData.categories}
-        />
+            <AIInsightsComponent
+              transactions={transactions}
+              monthlyIncome={income}
+              savingsGoal={savingsGoal}
+              currency={onboardingData.currency}
+              categories={onboardingData.categories}
+            />
 
-        <ReportsExport
-          transactions={transactions}
-          currency={onboardingData.currency}
-          monthlyIncome={income}
-          categories={onboardingData.categories}
-        />
+            <ReportsExport
+              transactions={transactions}
+              currency={onboardingData.currency}
+              monthlyIncome={income}
+              categories={onboardingData.categories}
+            />
+          </>
+        )}
 
         {/* Quick Summary */}
         <Card>
@@ -394,6 +437,7 @@ export function Dashboard() {
           transactions={transactions}
           onDeleteTransaction={handleDeleteTransaction}
           currency={onboardingData.currency}
+          readOnly={!isCurrentMonth}
         />
       </main>
     </div>

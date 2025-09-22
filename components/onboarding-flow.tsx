@@ -8,17 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, DollarSign, Target, Wallet } from "lucide-react"
-
-interface OnboardingData {
-  monthlyIncome: string
-  savingsGoal: string
-  currency: string
-  categories: {
-    needs: string[]
-    wants: string[]
-    notImportant: string[]
-  }
-}
+import { storage, type OnboardingData } from "@/lib/storage"
 
 interface OnboardingFlowProps {
   onComplete: () => void
@@ -41,8 +31,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (step < 3) {
       setStep(step + 1)
     } else {
-      // Save onboarding data to localStorage
-      localStorage.setItem("financeAI_onboarding", JSON.stringify(data))
+      storage.saveOnboardingData(data)
       onComplete()
     }
   }

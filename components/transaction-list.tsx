@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, Search, Filter, Calendar } from "lucide-react"
+import { Trash2, Search, Filter, Calendar, Eye } from "lucide-react"
+import { storage } from "@/lib/storage"
 
 interface Transaction {
   id: string
@@ -20,14 +21,34 @@ interface Transaction {
 
 interface TransactionListProps {
   transactions: Transaction[]
-  onDeleteTransaction: (id: string) => void
-  currency: string
+  onDeleteTransaction?: (id: string) => void
+  onTransactionUpdate?: () => void
+  currency?: string
+  readOnly?: boolean
 }
 
-export function TransactionList({ transactions, onDeleteTransaction, currency }: TransactionListProps) {
+export function TransactionList({
+  transactions,
+  onDeleteTransaction,
+  onTransactionUpdate,
+  currency = "USD",
+  readOnly = false,
+}: TransactionListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("date")
+
+  const handleDeleteTransaction = (id: string) => {
+    storage.deleteTransaction(id)
+
+    // Call the appropriate callback
+    if (onDeleteTransaction) {
+      onDeleteTransaction(id)
+    }
+    if (onTransactionUpdate) {
+      onTransactionUpdate()
+    }
+  }
 
   const getCurrencySymbol = (currency: string) => {
     const symbols: { [key: string]: string } = {
@@ -99,10 +120,12 @@ export function TransactionList({ transactions, onDeleteTransaction, currency }:
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Recent Transactions
+          {readOnly ? <Eye className="h-5 w-5" /> : <Calendar className="h-5 w-5" />}
+          {readOnly ? "Transaction History" : "Recent Transactions"}
         </CardTitle>
-        <CardDescription>Track and manage your expenses</CardDescription>
+        <CardDescription>
+          {readOnly ? "View historical transactions" : "Track and manage your expenses"}
+        </CardDescription>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -151,7 +174,9 @@ export function TransactionList({ transactions, onDeleteTransaction, currency }:
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               {transactions.length === 0
-                ? "Add your first transaction to get started"
+                ? readOnly
+                  ? "No transactions found for this period"
+                  : "Add your first transaction to get started"
                 : "Try adjusting your search or filters"}
             </p>
           </div>
@@ -186,14 +211,16 @@ export function TransactionList({ transactions, onDeleteTransaction, currency }:
                       {transaction.amount.toFixed(2)}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDeleteTransaction(transaction.id)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteTransaction(transaction.id)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
