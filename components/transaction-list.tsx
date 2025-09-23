@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Trash2, Search, Filter, Calendar, Eye } from "lucide-react"
 import { storage } from "@/lib/storage"
+import { formatINR } from "@/lib/currency"
 
 interface Transaction {
   id: string
@@ -48,16 +49,6 @@ export function TransactionList({
     if (onTransactionUpdate) {
       onTransactionUpdate()
     }
-  }
-
-  const getCurrencySymbol = (currency: string) => {
-    const symbols: { [key: string]: string } = {
-      USD: "$",
-      EUR: "€",
-      GBP: "£",
-      INR: "₹",
-    }
-    return symbols[currency] || "$"
   }
 
   const getTypeColor = (type: string) => {
@@ -206,10 +197,7 @@ export function TransactionList({
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="font-semibold">
-                      {getCurrencySymbol(currency)}
-                      {transaction.amount.toFixed(2)}
-                    </div>
+                    <div className="font-semibold">{formatINR(transaction.amount)}</div>
                   </div>
                   {!readOnly && (
                     <Button

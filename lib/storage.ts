@@ -54,7 +54,12 @@ class FinanceStorage {
     try {
       const data = localStorage.getItem(this.STORAGE_KEY)
       if (data) {
-        return JSON.parse(data)
+        const parsed: UserData = JSON.parse(data)
+        if (parsed.onboarding && parsed.onboarding.currency !== "INR") {
+          parsed.onboarding.currency = "INR"
+          this.saveUserData(parsed)
+        }
+        return parsed
       }
     } catch (error) {
       console.error("[v0] Error loading user data:", error)
@@ -89,9 +94,9 @@ class FinanceStorage {
         localStorage.setItem(this.BACKUP_KEY, currentData)
       }
 
-      // Save new data with timestamp
       const dataWithTimestamp = {
         ...data,
+        onboarding: data.onboarding ? { ...data.onboarding, currency: "INR" } : data.onboarding,
         lastUpdated: new Date().toISOString(),
       }
 
@@ -176,12 +181,13 @@ class FinanceStorage {
   // Onboarding data
   saveOnboardingData(data: OnboardingData): void {
     const userData = this.getUserData()
-    userData.onboarding = data
+    userData.onboarding = { ...data, currency: "INR" }
     this.saveUserData(userData)
   }
 
   getOnboardingData(): OnboardingData | null {
-    return this.getUserData().onboarding
+    const ob = this.getUserData().onboarding
+    return ob ? { ...ob, currency: "INR" } : ob
   }
 
   // Savings goals

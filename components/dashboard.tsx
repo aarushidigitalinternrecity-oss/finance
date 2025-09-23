@@ -12,6 +12,7 @@ import { AIInsightsComponent } from "@/components/ai-insights"
 import { SavingsGoals } from "@/components/savings-goals"
 import { ReportsExport } from "@/components/reports-export"
 import { storage, type Transaction, type OnboardingData } from "@/lib/storage"
+import { formatINR, INR_SYMBOL } from "@/lib/currency"
 
 interface DashboardProps {
   onNavigateToMonthlySummary?: () => void
@@ -96,17 +97,8 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
     { name: "Not Important", value: currentSpending.notImportant, color: "#ef4444" },
   ].filter((item) => item.value > 0)
 
-  const getCurrencySymbol = (currency: string) => {
-    const symbols: { [key: string]: string } = {
-      USD: "$",
-      EUR: "€",
-      GBP: "£",
-      INR: "₹",
-    }
-    return symbols[currency] || "$"
-  }
-
-  const currencySymbol = getCurrencySymbol(onboardingData.currency)
+  const currencySymbol = INR_SYMBOL
+  const fmt = formatINR
 
   const isCurrentMonth =
     currentMonth.getFullYear() === new Date().getFullYear() && currentMonth.getMonth() === new Date().getMonth()
@@ -173,7 +165,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
                 <TransactionForm
                   onAddTransaction={handleAddTransaction}
                   categories={onboardingData.categories}
-                  currency={onboardingData.currency}
+                  currency={"INR"}
                 />
               )}
             </div>
@@ -204,10 +196,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {currencySymbol}
-                {income.toLocaleString()}
-              </div>
+              <div className="text-2xl font-bold">{fmt(income)}</div>
             </CardContent>
           </Card>
 
@@ -217,10 +206,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {currencySymbol}
-                {totalSpent.toLocaleString()}
-              </div>
+              <div className="text-2xl font-bold">{fmt(totalSpent)}</div>
               <p className="text-xs text-muted-foreground">{spendingPercentage.toFixed(1)}% of income</p>
             </CardContent>
           </Card>
@@ -233,16 +219,8 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {currencySymbol}
-                {actualSavings.toLocaleString()}
-              </div>
-              {savingsGoal > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Goal: {currencySymbol}
-                  {savingsGoal.toLocaleString()}
-                </p>
-              )}
+              <div className="text-2xl font-bold">{fmt(actualSavings)}</div>
+              {savingsGoal > 0 && <p className="text-xs text-muted-foreground">Goal: {fmt(savingsGoal)}</p>}
             </CardContent>
           </Card>
 
@@ -288,7 +266,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value: number) => [`${currencySymbol}${value}`, "Amount"]} />
+                        <Tooltip formatter={(value: number) => [fmt(value), "Amount"]} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -329,9 +307,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
                     <div className="flex justify-between text-sm">
                       <span>Progress</span>
                       <span>
-                        {currencySymbol}
-                        {actualSavings} / {currencySymbol}
-                        {savingsGoal}
+                        {fmt(actualSavings)} / {fmt(savingsGoal)}
                       </span>
                     </div>
                     <Progress value={(actualSavings / savingsGoal) * 100} className="h-2" />
@@ -343,10 +319,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
                       <div className="text-xs text-muted-foreground">Complete</div>
                     </div>
                     <div className="p-3 bg-muted rounded-lg">
-                      <div className="text-lg font-semibold">
-                        {currencySymbol}
-                        {Math.max(0, savingsGoal - actualSavings)}
-                      </div>
+                      <div className="text-lg font-semibold">{fmt(Math.max(0, savingsGoal - actualSavings))}</div>
                       <div className="text-xs text-muted-foreground">Remaining</div>
                     </div>
                   </div>
@@ -366,19 +339,19 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
 
         {isCurrentMonth && (
           <>
-            <SavingsGoals currency={onboardingData.currency} monthlyIncome={income} totalSpent={totalSpent} />
+            <SavingsGoals currency={"INR"} monthlyIncome={income} totalSpent={totalSpent} />
 
             <AIInsightsComponent
               transactions={transactions}
               monthlyIncome={income}
               savingsGoal={savingsGoal}
-              currency={onboardingData.currency}
+              currency={"INR"}
               categories={onboardingData.categories}
             />
 
             <ReportsExport
               transactions={transactions}
-              currency={onboardingData.currency}
+              currency={"INR"}
               monthlyIncome={income}
               categories={onboardingData.categories}
             />
@@ -405,8 +378,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
                         {currentSpending.notImportant > 0 && (
                           <span className="text-primary">
                             {" "}
-                            You could save {currencySymbol}
-                            {currentSpending.notImportant} by reducing unnecessary purchases.
+                            You could save {fmt(currentSpending.notImportant)} by reducing unnecessary purchases.
                           </span>
                         )}
                       </>
@@ -423,8 +395,8 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
                   <div>
                     <p className="font-medium text-yellow-800">Savings Tip</p>
                     <p className="text-sm text-yellow-700">
-                      To reach your savings goal, try reducing Wants by {currencySymbol}
-                      {Math.max(0, savingsGoal - actualSavings)} this month.
+                      To reach your savings goal, try reducing Wants by {fmt(Math.max(0, savingsGoal - actualSavings))}{" "}
+                      this month.
                     </p>
                   </div>
                 </div>
@@ -436,7 +408,7 @@ export function Dashboard({ onNavigateToMonthlySummary }: DashboardProps) {
         <TransactionList
           transactions={transactions}
           onDeleteTransaction={handleDeleteTransaction}
-          currency={onboardingData.currency}
+          currency={"INR"}
           readOnly={!isCurrentMonth}
         />
       </main>
